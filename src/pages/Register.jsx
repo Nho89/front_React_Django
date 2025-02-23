@@ -1,20 +1,32 @@
-import React, {useState} from 'react'
+import React, {useState, useEffect} from 'react'
 import { useForm } from "react-hook-form";
 import { useUserContext } from '../context/UserContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { userRegister } from '../services/userServices.js';
-
+import axios from 'axios';
 const Register = () => {
 
   const [isLoading, setIsLoading] = useState(false);
-  const { register, getValues, formState: { errors }, handleSubmit, unregister } = useForm();
+  const [courses, setCourses] = useState([]);
+  const { register, getValues, formState: { errors }, handleSubmit} = useForm();
   const { setUserAuth, setUser, setUserRole } = useUserContext();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/courses')
+      .then(response => setCourses(response.data))
+      .catch(error => console.error('Error al obtener los cursos:', error));
+  }, []);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
-      const response = await userRegister(data);
+      const newUser = {
+        ...data,
+        role: "student", // por defecto
+        enrollment_status: "active", // por defecto
+      };
+      const response = await userRegister(newUser);
       localStorage.setItem('token', response.token);
       setUserAuth(true);
       setUser(response.user_name);
@@ -28,34 +40,47 @@ const Register = () => {
 
   return (
     <div>
-      <form action="" onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)}>
         <div>
-            <input disabled={isLoading} className="" type="text" placeholder='Nombre'{...register('name', { maxLength: { value: 50 } })} id="name" />
-            {errors.name && errors.name.type === "maxLength" && <p className="">El nombre debe tener menos de 50 caracteres</p>}
-          </div>
-          <div>
-            <input disabled={isLoading} className="" type="text" placeholder='Apellido'{...register('lastname', { maxLength: { value: 50 } })} id="lastname" />
-            {errors.lastname && errors.lastname.type === "maxLength" && <p className="">El apellido debe tener menos de 50 caracteres</p>}
-            <div>
-            <input disabled={isLoading} className="" type="email" id="email" placeholder="Email" {...register('email', { required: true, pattern: /^[-\w.%+]{1,64}@(?:[A-Z0-9-]{1,63}\.){1,125}[A-Z]{2,63}$/i })} required />
-            <p className=''>
-              {errors.email && <span>El email es obligatorio y debe ser válido.</span>}
-            </p>
-          </div>
-          <div className="">
-            <input disabled={isLoading}
-              className=""
-              placeholder="Contraseña"
-              {...register('password', { required: true, pattern: /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\W)(?!.* ).{8,50}$/ })} required
-            />
-            
-            {errors.password?.type === "pattern" && <p className="">La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula un número y un caracter especial</p>}
-          </div>
-          </div>
-        <button disabled={isLoading} className="" type="submit">
-            Enviar
-          </button>
-          <button type='button' onClick={() => navigate('/')} className="">Cancelar</button>
+          <input disabled={isLoading} type="text" placeholder="Nombre" {...register('name', { maxLength: 50 })} />
+          {errors.name?.type === "maxLength" && <p>El nombre debe tener menos de 50 caracteres</p>}
+        </div>
+
+        <div>
+          <input disabled={isLoading} type="text" placeholder="Apellido" {...register('lastname', { maxLength: 50 })} />
+          {errors.lastname?.type === "maxLength" && <p>El apellido debe tener menos de 50 caracteres</p>}
+        </div>
+
+        <div>
+          <input disabled={isLoading} type="email" placeholder="Email" {...register('email', { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ })} required />
+          {errors.email && <p>El email es obligatorio y debe ser válido.</p>}
+        </div>
+
+        <div>
+          <input disabled={isLoading} type="password" placeholder="Contraseña"
+            {...register('password', { required: true, pattern: /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\W)(?!.* ).{8,50}$/ })} required />
+          {errors.password?.type === "pattern" && <p>La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un caracter especial.</p>}
+        </div>
+
+        <div>
+          <label htmlFor="course">Selecciona un curso:</label>
+          <select id="course" disabled={isLoading} {...register('course')}>
+            <option value="">-- Selecciona un curso --</option>
+            {courses.length === 0 ? (
+              // Cursos predeterminados si no se cargan desde el backend
+              ["Pintura", "Escultura", "Historia del Arte"].map((course, index) => (
+                <option key={index} value={course}>{course}</option>
+              ))
+            ) : (
+              courses.map(course => (
+                <option key={course.id} value={course.name}>{course.name}</option>
+              ))
+            )}
+          </select>
+        </div>
+
+        <button disabled={isLoading} type="submit">Enviar</button>
+        <button type="button" onClick={() => navigate('/')}>Cancelar</button>
       </form>
     </div>
   )
